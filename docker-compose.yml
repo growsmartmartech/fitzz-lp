@@ -1,8 +1,8 @@
 version: "3.9"
 
 networks:
-  app_network:
-    driver: bridge
+  coolify:
+    external: true
 
 services:
 
@@ -18,7 +18,7 @@ services:
     ports:
       - "${PORT_APP}:80"
     networks:
-      - app_network
+      - coolify
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.${PROJECT_NAME}-app.rule=Host(`${DOMAIN}`)"
