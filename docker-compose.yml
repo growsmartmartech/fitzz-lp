@@ -1,0 +1,27 @@
+version: "3.9"
+
+networks:
+  app_network:
+    driver: bridge
+
+services:
+
+  # ──────────────────────────────────────────────
+  # FITZZ LP — Vite + React (build estático servido via Nginx)
+  # ──────────────────────────────────────────────
+  fitzz-lp:
+    container_name: ${PROJECT_NAME}_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT_APP}:80"
+    networks:
+      - app_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT_NAME}-app.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${PROJECT_NAME}-app.entrypoints=websecure"
+      - "traefik.http.routers.${PROJECT_NAME}-app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${PROJECT_NAME}-app.loadbalancer.server.port=80"
