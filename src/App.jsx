@@ -35,6 +35,7 @@ export default function App() {
     e.preventDefault();
     if (formData.captcha === '3') {
       setFormSubmitted(true);
+      window.location.href = 'https://materiais.fitzz.com.br/campanha-calculadora';
     } else {
       alert('Por favor, resolva a soma corretamente para continuar.');
     }
