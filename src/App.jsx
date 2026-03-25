@@ -103,7 +103,7 @@ export default function App() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                background: '#15803d',
+                background: '#8ab120',
                 color: 'white',
                 padding: '0.6rem 1.25rem',
                 borderRadius: '9999px',
@@ -122,7 +122,7 @@ export default function App() {
       {/* HERO */}
       <section
         style={{
-          background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 60%, #f0fdf4 100%)',
+          background: 'linear-gradient(135deg, #f5fbe5 0%, #ffffff 60%, #f5fbe5 100%)',
           borderBottom: '1px solid #e2e8f0',
           overflow: 'hidden',
         }}
@@ -147,8 +147,8 @@ export default function App() {
                 gap: '0.5rem',
                 padding: '0.35rem 0.9rem',
                 borderRadius: '9999px',
-                background: '#dcfce7',
-                color: '#166534',
+                background: '#eef7c0',
+                color: '#5c7a10',
                 fontSize: '0.8rem',
                 fontWeight: '800',
                 marginBottom: '1.5rem',
@@ -170,14 +170,14 @@ export default function App() {
               }}
             >
               A Revolução das{' '}
-              <span style={{ color: '#16a34a' }}>Entregas</span>
+              <span style={{ color: '#8ab120' }}>Entregas</span>
             </h1>
 
             <p
               style={{
                 fontSize: '1.25rem',
                 fontWeight: '700',
-                color: '#16a34a',
+                color: '#8ab120',
                 marginBottom: '1rem',
               }}
             >
@@ -206,7 +206,7 @@ export default function App() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.75rem',
-                  background: '#16a34a',
+                  background: '#8ab120',
                   color: 'white',
                   padding: '1rem 2rem',
                   borderRadius: '9999px',
@@ -214,7 +214,7 @@ export default function App() {
                   fontWeight: '800',
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 24px rgba(22,163,74,0.35)',
+                  boxShadow: '0 8px 24px rgba(138,177,32,0.35)',
                   letterSpacing: '0.02em',
                 }}
               >
@@ -233,7 +233,7 @@ export default function App() {
               style={{
                 position: 'absolute',
                 inset: 0,
-                background: 'linear-gradient(135deg, #dcfce7, #f0fdf4)',
+                background: 'linear-gradient(135deg, #eef7c0, #f5fbe5)',
                 borderRadius: '1.5rem',
                 transform: 'rotate(2deg) scale(1.04)',
                 zIndex: 0,
@@ -280,12 +280,12 @@ export default function App() {
             >
               <div
                 style={{
-                  background: '#dcfce7',
+                  background: '#eef7c0',
                   padding: '0.6rem',
                   borderRadius: '50%',
                 }}
               >
-                <CircleDollarSign size={28} color="#16a34a" />
+                <CircleDollarSign size={28} color="#8ab120" />
               </div>
               <div>
                 <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -312,7 +312,7 @@ export default function App() {
         >
           {stats.map((stat, i) => (
             <div key={i} style={{ textAlign: 'center', padding: '1rem' }}>
-              <div style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: '900', color: '#4ade80', marginBottom: '0.25rem' }}>
+              <div style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: '900', color: '#a6ce37', marginBottom: '0.25rem' }}>
                 {stat.value}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600' }}>{stat.label}</div>
@@ -354,8 +354,8 @@ export default function App() {
                 desc: 'Pedale com assistência elétrica e chegue ao fim do dia com energia para sua família.',
               },
               {
-                icon: <CircleDollarSign size={28} color="#16a34a" />,
-                bg: '#f0fdf4',
+                icon: <CircleDollarSign size={28} color="#8ab120" />,
+                bg: '#f5fbe5',
                 title: 'Mais no Bolso',
                 desc: 'Economize até 50% em combustível e custos de manutenção todo mês.',
               },
@@ -450,11 +450,11 @@ export default function App() {
                   <th
                     style={{
                       padding: '1rem',
-                      borderBottom: '2px solid #16a34a',
-                      color: '#15803d',
+                      borderBottom: '2px solid #8ab120',
+                      color: '#8ab120',
                       fontWeight: '800',
                       textAlign: 'center',
-                      background: '#f0fdf4',
+                      background: '#f5fbe5',
                       width: '33%',
                       borderRadius: '0.5rem 0.5rem 0 0',
                     }}
@@ -483,8 +483,8 @@ export default function App() {
                       <XCircle size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'middle' }} />
                       {row.moto}
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'center', color: '#15803d', fontWeight: '700', background: '#f0fdf4' }}>
-                      <CheckCircle2 size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'middle', color: '#16a34a' }} />
+                    <td style={{ padding: '1rem', textAlign: 'center', color: '#8ab120', fontWeight: '700', background: '#f5fbe5' }}>
+                      <CheckCircle2 size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'middle', color: '#8ab120' }} />
                       {row.fitzz}
                     </td>
                   </tr>
@@ -515,8 +515,8 @@ export default function App() {
                 gap: '0.5rem',
                 padding: '0.35rem 0.9rem',
                 borderRadius: '9999px',
-                background: 'rgba(74,222,128,0.15)',
-                color: '#4ade80',
+                background: 'rgba(166,206,55,0.15)',
+                color: '#a6ce37',
                 fontSize: '0.8rem',
                 fontWeight: '800',
                 marginBottom: '1.5rem',
@@ -535,15 +535,15 @@ export default function App() {
             </p>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {[
-                { icon: <CheckCircle2 size={22} color="#4ade80" />, text: '1 ano de garantia total' },
-                { icon: <Wrench size={22} color="#4ade80" />, text: 'Suporte dedicado e peças acessíveis' },
-                { icon: <Zap size={22} color="#4ade80" />, text: 'Autonomia de até 110 km/dia' },
-                { icon: <ShieldCheck size={22} color="#4ade80" />, text: 'Instalação rápida e sem dificuldade' },
+                { icon: <CheckCircle2 size={22} color="#a6ce37" />, text: '1 ano de garantia total' },
+                { icon: <Wrench size={22} color="#a6ce37" />, text: 'Suporte dedicado e peças acessíveis' },
+                { icon: <Zap size={22} color="#a6ce37" />, text: 'Autonomia de até 110 km/dia' },
+                { icon: <ShieldCheck size={22} color="#a6ce37" />, text: 'Instalação rápida e sem dificuldade' },
               ].map((item, i) => (
                 <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', fontSize: '1rem', fontWeight: '600' }}>
                   <div
                     style={{
-                      background: 'rgba(74,222,128,0.15)',
+                      background: 'rgba(166,206,55,0.15)',
                       padding: '0.5rem',
                       borderRadius: '0.5rem',
                       flexShrink: 0,
@@ -577,7 +577,7 @@ export default function App() {
                 padding: '0.4rem',
               }}
             >
-              <ShieldCheck size={40} color="#4ade80" />
+              <ShieldCheck size={40} color="#a6ce37" />
             </div>
             <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'white', marginBottom: '0.75rem' }}>
               Motor Robusto de Alta Performance
@@ -604,7 +604,7 @@ export default function App() {
                   }}
                 >
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{item.label}</span>
-                  <span style={{ fontWeight: '800', color: '#4ade80', fontSize: '0.9rem' }}>{item.value}</span>
+                  <span style={{ fontWeight: '800', color: '#a6ce37', fontSize: '0.9rem' }}>{item.value}</span>
                 </div>
               ))}
             </div>
@@ -647,7 +647,7 @@ export default function App() {
                       width: '2.5rem',
                       height: '2.5rem',
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #16a34a, #4ade80)',
+                      background: 'linear-gradient(135deg, #8ab120, #a6ce37)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -677,7 +677,7 @@ export default function App() {
         id="simulador"
         style={{
           padding: '5rem 1.5rem',
-          background: 'linear-gradient(135deg, #16a34a, #15803d)',
+          background: 'linear-gradient(135deg, #8ab120, #5c7a10)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -703,7 +703,7 @@ export default function App() {
             {/* Form header */}
             <div
               style={{
-                background: '#15803d',
+                background: '#8ab120',
                 padding: '2.5rem 2rem',
                 textAlign: 'center',
                 color: 'white',
@@ -753,11 +753,11 @@ export default function App() {
                       width: '5rem',
                       height: '5rem',
                       borderRadius: '50%',
-                      background: '#dcfce7',
+                      background: '#eef7c0',
                       marginBottom: '1.5rem',
                     }}
                   >
-                    <CheckCircle2 size={40} color="#16a34a" />
+                    <CheckCircle2 size={40} color="#8ab120" />
                   </div>
                   <h3 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginBottom: '1rem' }}>
                     Tudo Certo, {formData.nome.split(' ')[0]}!
@@ -768,7 +768,7 @@ export default function App() {
                   </p>
                   <button
                     onClick={() => setFormSubmitted(false)}
-                    style={{ color: '#16a34a', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', textDecoration: 'underline' }}
+                    style={{ color: '#8ab120', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', textDecoration: 'underline' }}
                   >
                     Fazer nova simulação
                   </button>
@@ -807,7 +807,7 @@ export default function App() {
                           outline: 'none',
                           boxSizing: 'border-box',
                         }}
-                        onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
+                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
                         onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
                       />
                     </div>
@@ -835,7 +835,7 @@ export default function App() {
                           outline: 'none',
                           boxSizing: 'border-box',
                         }}
-                        onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
+                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
                         onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
                       />
                     </div>
@@ -872,7 +872,7 @@ export default function App() {
                           outline: 'none',
                           boxSizing: 'border-box',
                         }}
-                        onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
+                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
                         onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
                       />
                     </div>
@@ -900,7 +900,7 @@ export default function App() {
                           outline: 'none',
                           boxSizing: 'border-box',
                         }}
-                        onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
+                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
                         onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
                       />
                     </div>
