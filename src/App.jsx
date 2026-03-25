@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import {
   Package,
   Zap,
@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Wrench,
   ArrowRight,
-  ChevronRight,
   Star,
   MapPin,
   Battery,
@@ -18,28 +17,11 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [formData, setFormData] = useState({
-    nome: '',
-    email: '',
-    whatsapp: '',
-    captcha: '',
-  });
-  const [formSubmitted, setFormSubmitted] = useState(false);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.captcha === '3') {
-      setFormSubmitted(true);
-      window.location.href = 'https://materiais.fitzz.com.br/campanha-calculadora';
-    } else {
-      alert('Por favor, resolva a soma corretamente para continuar.');
+  useEffect(() => {
+    if (window.RDStationForms) {
+      new window.RDStationForms('delivery-9217716c5a85366ebd0d', 'UA-142109495-1').createForm();
     }
-  };
+  }, []);
 
   const scrollToForm = () => {
     document.getElementById('simulador').scrollIntoView({ behavior: 'smooth' });
@@ -742,201 +724,9 @@ export default function App() {
               </p>
             </div>
 
-            {/* Form body */}
-            <div style={{ padding: '2.5rem 2.5rem' }}>
-              {formSubmitted ? (
-                <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '5rem',
-                      height: '5rem',
-                      borderRadius: '50%',
-                      background: '#eef7c0',
-                      marginBottom: '1.5rem',
-                    }}
-                  >
-                    <CheckCircle2 size={40} color="#8ab120" />
-                  </div>
-                  <h3 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginBottom: '1rem' }}>
-                    Tudo Certo, {formData.nome.split(' ')[0]}!
-                  </h3>
-                  <p style={{ color: '#475569', fontSize: '1.05rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-                    Nossa equipe já recebeu seus dados e em breve entraremos em contato pelo WhatsApp para te mostrar sua
-                    simulação de lucros.
-                  </p>
-                  <button
-                    onClick={() => setFormSubmitted(false)}
-                    style={{ color: '#8ab120', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', textDecoration: 'underline' }}
-                  >
-                    Fazer nova simulação
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit}>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                      gap: '1.25rem',
-                      marginBottom: '1.25rem',
-                    }}
-                  >
-                    <div>
-                      <label
-                        htmlFor="nome"
-                        style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}
-                      >
-                        Nome *
-                      </label>
-                      <input
-                        type="text"
-                        id="nome"
-                        name="nome"
-                        required
-                        value={formData.nome}
-                        onChange={handleInputChange}
-                        placeholder="João da Silva"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '0.75rem',
-                          border: '1.5px solid #e2e8f0',
-                          fontSize: '1rem',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
-                        onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="email"
-                        style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}
-                      >
-                        E-mail *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        required
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        placeholder="joao@email.com"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '0.75rem',
-                          border: '1.5px solid #e2e8f0',
-                          fontSize: '1rem',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
-                        onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
-                      />
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                      gap: '1.25rem',
-                      marginBottom: '2rem',
-                    }}
-                  >
-                    <div>
-                      <label
-                        htmlFor="whatsapp"
-                        style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}
-                      >
-                        DDD + WhatsApp *
-                      </label>
-                      <input
-                        type="tel"
-                        id="whatsapp"
-                        name="whatsapp"
-                        required
-                        value={formData.whatsapp}
-                        onChange={handleInputChange}
-                        placeholder="(11) 99999-9999"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '0.75rem',
-                          border: '1.5px solid #e2e8f0',
-                          fontSize: '1rem',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
-                        onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="captcha"
-                        style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}
-                      >
-                        Anti-spam: 1 + 2 = ? *
-                      </label>
-                      <input
-                        type="number"
-                        id="captcha"
-                        name="captcha"
-                        required
-                        value={formData.captcha}
-                        onChange={handleInputChange}
-                        placeholder="Digite o resultado"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '0.75rem',
-                          border: '1.5px solid #e2e8f0',
-                          fontSize: '1rem',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                        onFocus={(e) => (e.target.style.borderColor = '#8ab120')}
-                        onBlur={(e) => (e.target.style.borderColor = '#e2e8f0')}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    style={{
-                      width: '100%',
-                      background: '#0f172a',
-                      color: 'white',
-                      fontWeight: '800',
-                      fontSize: '1.05rem',
-                      padding: '1rem',
-                      borderRadius: '0.875rem',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      letterSpacing: '0.02em',
-                      boxShadow: '0 4px 16px rgba(15,23,42,0.25)',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = '#1e293b')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = '#0f172a')}
-                  >
-                    CALCULE SEU LUCRO AGORA
-                    <ChevronRight size={22} />
-                  </button>
-                  <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#94a3b8', marginTop: '1rem' }}>
-                    🔒 Seus dados estão seguros. Não enviamos spam.
-                  </p>
-                </form>
-              )}
+            {/* Form body — RD Station */}
+            <div style={{ padding: '2rem 2.5rem' }}>
+              <div role="main" id="delivery-9217716c5a85366ebd0d"></div>
             </div>
           </div>
         </div>
