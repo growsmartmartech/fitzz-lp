@@ -59,7 +59,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
       {/* HEADER */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+      <header className="bg-white shadow-sm sticky top-0 z-50" role="banner">
         <div
           style={{ maxWidth: '1280px', margin: '0 auto', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         >
@@ -95,12 +95,15 @@ export default function App() {
                 cursor: 'pointer',
                 fontSize: '0.9rem',
               }}
+              aria-label="Calcular meu lucro com kit elétrico Fitzz"
             >
               Calcular meu lucro
             </button>
           </div>
         </div>
       </header>
+
+      <main id="conteudo-principal">
 
       {/* HERO */}
       <section
@@ -152,8 +155,8 @@ export default function App() {
                 letterSpacing: '-0.03em',
               }}
             >
-              A Revolução das{' '}
-              <span style={{ color: '#8ab120' }}>Entregas</span>
+              Kit Elétrico para Bike:{' '}
+              <span style={{ color: '#8ab120' }}>A Revolução das Entregas</span>
             </h1>
 
             <p
@@ -200,6 +203,7 @@ export default function App() {
                   boxShadow: '0 8px 24px rgba(138,177,32,0.35)',
                   letterSpacing: '0.02em',
                 }}
+                aria-label="Calcular meu lucro com kit elétrico para bike"
               >
                 CALCULAR MEU LUCRO AGORA
                 <ArrowRight size={20} />
@@ -732,8 +736,10 @@ export default function App() {
         </div>
       </section>
 
+      </main>
+
       {/* FOOTER */}
-      <footer style={{ background: '#020617', color: '#64748b', padding: '3rem 1.5rem', textAlign: 'center' }}>
+      <footer style={{ background: '#020617', color: '#64748b', padding: '3rem 1.5rem', textAlign: 'center' }} role="contentinfo">
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
             <img
