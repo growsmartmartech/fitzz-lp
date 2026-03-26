@@ -252,17 +252,14 @@ export default function App() {
             <div
               className="animate-bounce-slow"
               style={{
-                position: 'absolute',
-                top: 'calc(100% + 0.75rem)',
-                left: '0',
+                marginTop: '1rem',
                 background: 'white',
                 padding: '1rem',
                 borderRadius: '1rem',
                 boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.75rem',
-                zIndex: 10,
               }}
             >
               <div
