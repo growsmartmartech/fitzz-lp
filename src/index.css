@@ -1,35 +1,139 @@
-@import "tailwindcss";
+@font-face {
+  font-family: Montserrat;
+  src: url('/assets/fonts/Montserrat-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 
-@layer base {
-  * {
-    box-sizing: border-box;
-  }
+@font-face {
+  font-family: Montserrat;
+  src: url('/assets/fonts/Montserrat-SemiBold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Montserrat;
+  src: url('/assets/fonts/Montserrat-ExtraBold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+:root {
+  --fitzz-graphite: #211f1f;
+  --fitzz-graphite-soft: #383535;
+  --fitzz-olive-deep: #4d5238;
+  --fitzz-olive: #68773c;
+  --fitzz-lime: #a8cf45;
+  --fitzz-lime-light: #c7e088;
+  --fitzz-white: #ffffff;
+  --font-body: Montserrat, Arial, sans-serif;
+
+  color: var(--fitzz-graphite);
+  background: var(--fitzz-white);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+  scroll-padding-top: 92px;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  color: var(--fitzz-graphite);
+  background: var(--fitzz-white);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+img,
+iframe {
+  max-width: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  outline-offset: 4px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--fitzz-lime);
+}
+
+::selection {
+  color: var(--fitzz-graphite);
+  background: var(--fitzz-lime-light);
+}
+
+#simulador {
+  scroll-margin-top: 92px;
+}
+
+@media (max-width: 760px) {
   html {
-    scroll-behavior: smooth;
+    scroll-padding-top: 78px;
   }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, sans-serif;
-  }
-  #root {
-    width: 100%;
-    max-width: 100%;
-    text-align: left;
-    border-inline: none;
-  }
-  h1, h2, h3 {
-    margin: 0;
-  }
-  p {
-    margin: 0;
+
+  #simulador {
+    scroll-margin-top: 78px;
   }
 }
 
-@keyframes bounce-slow {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 
-.animate-bounce-slow {
-  animation: bounce-slow 2s ease-in-out infinite;
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
