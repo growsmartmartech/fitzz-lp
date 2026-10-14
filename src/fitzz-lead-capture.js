@@ -16,12 +16,12 @@ import { isValidFormId } from './lead-capture-config.js';
     products: PRODUCTS, captureAttribution: false, trackingAuthorized: false,
     measurementChoices: { analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', ad_storage: 'denied', version: null },
     autoRedirect: false, timeoutMs: 12000, pollIntervalMs: 2000, maxPollingMs: 30000, maxPollAttempts: 8,
-    communicationTextVersion: 'draft-v01', privacyNoticeVersion: 'draft-v01',
+    communicationTextVersion: 'draft-v01', privacyNoticeVersion: 'privacy-v03',
     texts: {
       eyebrow: 'Converse com a Fitzz', title: 'Encontre o kit para a sua bicicleta.',
       description: 'Conte o que você procura e continue o atendimento no WhatsApp.',
       optin: 'Aceito receber comunicações futuras da Fitzz.',
-      privacyNote: 'Vamos usar estes dados para registrar sua solicitação de atendimento.',
+      privacyNote: 'Usaremos suas informações para entrar em contato sobre sua solicitação. Não enviamos spam.',
       submit: 'Continuar no WhatsApp', launcher: 'Falar com a Fitzz'
     }
   };
