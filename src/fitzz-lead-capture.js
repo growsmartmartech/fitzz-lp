@@ -1,10 +1,10 @@
-/* Fitzz lead capture v1.0.2 — vanilla custom element. No credentials or storage. */
+/* Fitzz lead capture v1.0.4 — vanilla custom element. No credentials or storage. */
 import { isValidFormId } from './lead-capture-config.js';
 
 (() => {
   'use strict';
   if (customElements.get('fitzz-lead-capture')) return;
-  const VERSION = '1.0.2';
+  const VERSION = '1.0.4';
   const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
   const CLICK_KEYS = ['gclid', 'gbraid', 'wbraid'];
   const PRODUCTS = [
@@ -15,7 +15,8 @@ import { isValidFormId } from './lead-capture-config.js';
   const DEFAULTS = {
     products: PRODUCTS, captureAttribution: false, trackingAuthorized: false,
     measurementChoices: { analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', ad_storage: 'denied', version: null },
-    autoRedirect: false, timeoutMs: 12000, pollIntervalMs: 2000, maxPollingMs: 30000, maxPollAttempts: 8,
+    autoRedirect: false, timeoutMs: 12000, pollIntervalMs: 2500, maxPollingMs: 60000, maxPollAttempts: 20,
+    whatsappNumber: '5548991108989',
     communicationTextVersion: 'draft-v01', privacyNoticeVersion: 'privacy-v03',
     texts: {
       eyebrow: 'Converse com a Fitzz', title: 'Encontre o kit para a sua bicicleta.',
@@ -99,7 +100,14 @@ import { isValidFormId } from './lead-capture-config.js';
       this.config = { ...DEFAULTS, texts: { ...DEFAULTS.texts }, measurementChoices: { ...DEFAULTS.measurementChoices }, products: PRODUCTS.map(p => ({ ...p })) };
       this._state = 'idle'; this._busy = false; this._locked = false; this._attempt = null; this._receipt = null; this._token = null;
       this._timers = new Set(); this._requestController = null; this._pollCount = 0; this._pollStarted = 0; this._cooldownUntil = 0;
-      this._onVisibility = () => { if (document.hidden) this._stopPoll(); else if (this._state === 'pending') this._showCheck(); };
+      this._whatsappAttemptStarted = false; this._whatsappTabOpened = false;
+      this._onVisibility = () => {
+        if (document.hidden) this._stopPoll();
+        else if (this._state === 'pending') {
+          this._showCheck();
+          if (this._canPoll() && !this._busy) this._schedulePoll();
+        }
+      };
     }
     connectedCallback() {
       if (!this._landingPage) this._landingPage = location.href;
@@ -122,12 +130,13 @@ import { isValidFormId } from './lead-capture-config.js';
       if (this._attempt && this._locked) throw new Error('Não altere a configuração enquanto houver um cadastro em andamento.');
       const prior = this._readFields();
       this._attempt = null; this._attemptEndpoint = null; this._statusEndpoint = null; this._receipt = null; this._token = null;
+      this._whatsappAttemptStarted = false; this._whatsappTabOpened = false;
       const products = options.products || this.config.products;
       if (!Array.isArray(products) || products.length === 0 || products.length > 60 || products.some(p => !p || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(p.id) || typeof p.label !== 'string' || !p.label.trim() || p.label.length > 100) || new Set(products.map(p => p.id)).size !== products.length) throw new Error('Configure um catálogo válido com IDs únicos.');
       const c = { ...this.config, ...options, products: products.map(p => ({ id: p.id, label: p.label })), texts: { ...this.config.texts, ...(options.texts || {}) }, measurementChoices: { ...this.config.measurementChoices, ...(options.measurementChoices || {}) } };
       for (const key of ['analytics_storage', 'ad_user_data', 'ad_personalization', 'ad_storage']) if (!['unknown', 'granted', 'denied'].includes(c.measurementChoices[key])) c.measurementChoices[key] = 'denied';
-      c.timeoutMs = clamp(c.timeoutMs, 12000, 100, 30000); c.pollIntervalMs = clamp(c.pollIntervalMs, 2000, 100, 15000);
-      c.maxPollingMs = clamp(c.maxPollingMs, 30000, 100, 60000); c.maxPollAttempts = clamp(c.maxPollAttempts, 8, 1, 20);
+      c.timeoutMs = clamp(c.timeoutMs, 12000, 100, 30000); c.pollIntervalMs = clamp(c.pollIntervalMs, 2500, 2000, 15000);
+      c.maxPollingMs = clamp(c.maxPollingMs, 60000, 100, 60000); c.maxPollAttempts = clamp(c.maxPollAttempts, 20, 1, 20);
       c.captureAttribution = c.captureAttribution === true; c.trackingAuthorized = c.trackingAuthorized === true; c.autoRedirect = c.autoRedirect === true;
       c.measurementChoices = Object.fromEntries(['analytics_storage', 'ad_user_data', 'ad_personalization', 'ad_storage'].map(key => [key, c.measurementChoices[key]]));
       c.measurementChoices.version = typeof options.measurementChoices?.version === 'string' ? options.measurementChoices.version.slice(0, 80) : this.config.measurementChoices.version;
@@ -149,6 +158,8 @@ import { isValidFormId } from './lead-capture-config.js';
       // Uma tentativa rejeitada pode ser editada. Não reutilize seu snapshot.
       this._attempt = null; this._attemptEndpoint = null; this._statusEndpoint = null;
       this._receipt = null; this._token = null;
+      this._whatsappAttemptStarted = false; this._whatsappTabOpened = false;
+      const link = this._el('continue-whatsapp'); link.hidden = true; link.removeAttribute('href');
       this._error('product_id', ''); this._setState('idle', '');
       return true;
     }
@@ -164,7 +175,7 @@ import { isValidFormId } from './lead-capture-config.js';
       const t = this.config.texts;
       const field = (name, label, type, attrs = '', wide = false) => `<div class="field ${wide ? 'wide' : ''}"><label for="${name}">${label}</label><input id="${name}" name="${name}" type="${type}" ${attrs} required aria-describedby="${name}-error"><p class="error" id="${name}-error"></p></div>`;
       const privacyUrl = this.getAttribute('privacy-url') ? safeHttpUrl(this.getAttribute('privacy-url')) : null;
-      const panel = `<section class="panel"><header class="intro"><p class="eyebrow">${esc(t.eyebrow)}</p><h2 id="capture-title">${esc(t.title)}</h2><p class="description">${esc(t.description)}</p></header><form novalidate><div class="fields">${field('full_name', 'Nome', 'text', 'autocomplete="name" maxlength="100"', true)}${field('email', 'Email', 'email', 'autocomplete="email" maxlength="254"')}${field('whatsapp', 'WhatsApp', 'tel', 'autocomplete="tel" inputmode="tel" maxlength="24" placeholder="DDD + número"')}<div class="field wide"><label for="product_id">Produto de interesse</label><select id="product_id" name="product_id" required aria-describedby="product_id-error"><option value="">Selecione o produto</option>${this.config.products.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('')}</select><p class="error" id="product_id-error"></p></div></div><label class="optin" for="communication_optin"><input type="checkbox" id="communication_optin" name="communication_optin"><span>${esc(t.optin)}</span></label><p class="privacy">${esc(t.privacyNote)}${privacyUrl ? ` <a href="${esc(privacyUrl.href)}" target="_blank" rel="noopener noreferrer">Política de privacidade</a>` : ''}</p><button class="primary" type="submit">${esc(t.submit)} <span aria-hidden="true">↗</span></button><p class="status" id="form-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p><button type="button" class="secondary" id="check-status" hidden>Consultar cadastro</button><a class="continue" id="continue-whatsapp" hidden rel="noopener noreferrer">Abrir WhatsApp <span aria-hidden="true">↗</span></a></form></section>`;
+      const panel = `<section class="panel"><header class="intro"><p class="eyebrow">${esc(t.eyebrow)}</p><h2 id="capture-title">${esc(t.title)}</h2><p class="description">${esc(t.description)}</p></header><form novalidate><div class="fields">${field('full_name', 'Nome', 'text', 'autocomplete="name" maxlength="100"', true)}${field('email', 'Email', 'email', 'autocomplete="email" maxlength="254"')}${field('whatsapp', 'WhatsApp', 'tel', 'autocomplete="tel" inputmode="tel" maxlength="24" placeholder="DDD + número"')}<div class="field wide"><label for="product_id">Produto de interesse</label><select id="product_id" name="product_id" required aria-describedby="product_id-error"><option value="">Selecione o produto</option>${this.config.products.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('')}</select><p class="error" id="product_id-error"></p></div></div><label class="optin" for="communication_optin"><input type="checkbox" id="communication_optin" name="communication_optin"><span>${esc(t.optin)}</span></label><p class="privacy">${esc(t.privacyNote)}${privacyUrl ? ` <a href="${esc(privacyUrl.href)}" target="_blank" rel="noopener noreferrer">Política de privacidade</a>` : ''}</p><button class="primary" type="submit">${esc(t.submit)} <span aria-hidden="true">↗</span></button><p class="status" id="form-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p><button type="button" class="secondary" id="check-status" hidden>Consultar cadastro</button><a class="continue" id="continue-whatsapp" hidden target="_blank" rel="noopener noreferrer">Abrir WhatsApp <span aria-hidden="true">↗</span></a></form></section>`;
       const floating = this.getAttribute('mode') === 'floating';
       this.shadowRoot.innerHTML = `<style>${CSS}</style>${floating ? `<button type="button" class="launcher" id="launcher" aria-label="${esc(t.launcher)}" title="${esc(t.launcher)}" aria-haspopup="dialog" aria-controls="capture-dialog">${whatsappIcon}</button><dialog id="capture-dialog" aria-labelledby="capture-title"><button type="button" class="close" aria-label="Fechar formulário">×</button>${panel}</dialog>` : panel}`;
       this._rendered = true;
@@ -172,6 +183,8 @@ import { isValidFormId } from './lead-capture-config.js';
       this.shadowRoot.querySelectorAll('input,select').forEach(input => input.addEventListener('input', () => {
         if (!this._locked) {
           this._attempt = null; this._attemptEndpoint = null; this._statusEndpoint = null; this._receipt = null; this._token = null;
+          this._whatsappAttemptStarted = false; this._whatsappTabOpened = false;
+          const link = this._el('continue-whatsapp'); link.hidden = true; link.removeAttribute('href');
           this._error(input.name, ''); this._setState('idle', '');
         }
       }));
@@ -286,11 +299,15 @@ import { isValidFormId } from './lead-capture-config.js';
         this._attemptEndpoint = endpoint; this._statusEndpoint = this._endpoint('status-url');
       }
       this._locked = true; this._busy = true; this._stopPoll(); this._el('check-status').hidden = true;
-      this._setState('submitting', 'Estamos registrando seus dados. Aguarde a confirmação.');
+      if (!this._whatsappAttemptStarted) {
+        this._whatsappTabOpened = this._openWhatsAppImmediately();
+        this._whatsappAttemptStarted = true;
+      }
+      this._setState('submitting', this._whatsappStatusMessage());
       try {
         const response = await this._fetch(endpoint.href, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(this._attempt) });
         await this._handleResponse(response, false);
-      } catch { this._setState('uncertain', 'Não foi possível confirmar o cadastro. Tente confirmar novamente; manteremos os mesmos dados para evitar um envio duplicado.'); }
+      } catch { this._setState('uncertain', `Não foi possível confirmar o cadastro. ${this._whatsappStatusMessage()} Tente confirmar novamente; manteremos os mesmos dados para evitar um envio duplicado.`); }
       finally { this._busy = false; this._applyLocks(); if (this._state === 'pending') this._schedulePoll(); }
     }
     _retrySeconds(response, body) {
@@ -316,9 +333,9 @@ import { isValidFormId } from './lead-capture-config.js';
       if (response.status === 200 && body.status === 'confirmed') {
         const wa = this._whatsappUrl(body.waUrl); if (!wa) throw new Error('invalid-whatsapp');
         this._stopPoll(); const link = this._el('continue-whatsapp'); link.href = wa; link.hidden = false; this._el('check-status').hidden = true;
-        this._setState('confirmed', 'Cadastro confirmado. Abra o WhatsApp e envie a mensagem para iniciar a conversa.');
+        const nextStep = this._whatsappTabOpened ? 'O WhatsApp está aberto em outra aba.' : 'Use o botão abaixo para abrir o WhatsApp em outra aba.';
+        this._setState('confirmed', `Cadastro confirmado. ${nextStep} Envie a mensagem para iniciar a conversa.`);
         this._el('form-status').focus({ preventScroll: true });
-        if (this.config.autoRedirect && this.isConnected) window.location.assign(wa);
         return;
       }
       if ((response.status === 202 || (fromPoll && response.status === 200)) && body.status === 'pending') {
@@ -327,7 +344,7 @@ import { isValidFormId } from './lead-capture-config.js';
         // Entropy, scope and expiry are server responsibilities; reject header/control characters here.
         if (typeof token !== 'string' || !/^[A-Za-z0-9._~-]{1,2048}$/.test(token) || typeof receipt !== 'string' || !/^[A-Za-z0-9._~-]{1,200}$/.test(receipt)) throw new Error('invalid-receipt');
         this._receipt = receipt; this._token = token; this._retryAfter = this._retrySeconds(response, body) * 1000;
-        this._setState('pending', 'Estamos registrando seus dados. Você poderá abrir o WhatsApp após a confirmação.'); this._showCheck(); return;
+        this._setState('pending', this._whatsappStatusMessage()); this._showCheck(); return;
       }
       throw new Error('invalid-contract');
     }
@@ -335,14 +352,39 @@ import { isValidFormId } from './lead-capture-config.js';
       if (typeof raw !== 'string') return null;
       try {
         const u = new URL(raw); if (u.protocol !== 'https:' || u.hostname !== 'wa.me' || u.port || u.username || u.password || u.hash || !/^\/[1-9]\d{7,14}\/?$/.test(u.pathname) || Array.from(u.searchParams.keys()).some(k => k !== 'text')) return null;
-        const number = u.pathname.replace(/\//g, ''); const restricted = this.getAttribute('whatsapp-number');
-        if (restricted && restricted.replace(/\D/g, '') !== number) return null;
+        const number = u.pathname.replace(/\//g, ''); const configured = this.getAttribute('whatsapp-number') || this.config.whatsappNumber;
+        const restricted = String(configured || '').replace(/\D/g, '');
+        if (!restricted || restricted !== number) return null;
         const product = this.config.products.find(p => p.id === this._attempt.product_id);
         u.search = ''; u.pathname = `/${number}`;
         // Rebuild text exclusively from configured catalogue. Never carry server PII/query fields.
         u.searchParams.set('text', `Olá, tenho interesse em ${product ? product.label : 'um kit Fitzz'} e gostaria de orientação.`);
         return u.href;
       } catch { return null; }
+    }
+    _whatsappStatusMessage() {
+      if (this._whatsappTabOpened) return 'WhatsApp aberto em outra aba. O registro dos seus dados continua em processamento.';
+      if (this._el('continue-whatsapp')?.href) return 'O cadastro continua em processamento. Use o botão abaixo para abrir o WhatsApp em outra aba.';
+      return 'O cadastro continua em processamento. O WhatsApp não está configurado para esta página.';
+    }
+    _openWhatsAppImmediately() {
+      const configuredNumber = this.getAttribute('whatsapp-number') || this.config.whatsappNumber;
+      const digits = String(configuredNumber || '').replace(/\D/g, '');
+      const wa = this._whatsappUrl(`https://wa.me/${digits}`);
+      if (!wa) return false;
+      const link = this._el('continue-whatsapp');
+      link.href = wa; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.hidden = false;
+      let popup = null;
+      try {
+        popup = window.open('about:blank', '_blank');
+        if (!popup) return false;
+        popup.opener = null;
+        popup.location.replace(wa);
+        return true;
+      } catch {
+        try { popup?.close(); } catch { /* A aba pode já ter sido bloqueada pelo navegador. */ }
+        return false;
+      }
     }
     _canPoll() { return !!(this._token && this._receipt && this._statusEndpoint); }
     _showCheck() { if (this._rendered && this._state !== 'confirmed') this._el('check-status').hidden = !this._locked || this._busy; }
@@ -367,3 +409,4 @@ import { isValidFormId } from './lead-capture-config.js';
   }
   customElements.define('fitzz-lead-capture', FitzzLeadCapture);
 })();
+

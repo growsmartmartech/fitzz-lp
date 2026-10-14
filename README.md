@@ -4,7 +4,7 @@ Landing React + Vite publicada em `https://delivery.fitzz.com.br/`. O formulári
 
 ## Captura
 
-O formulário coleta nome, e-mail, WhatsApp, produto de interesse e aceite opcional de comunicações. Para Delivery, o catálogo apresenta somente `KIT DELIVERY-400`. A submissão usa o POST e a consulta de status documentados pelo fluxo n8n. O componente só libera o link para WhatsApp depois da confirmação do cadastro pelo Umbler Talk; a pessoa precisa enviar a primeira mensagem para iniciar a conversa.
+O formulário coleta nome, e-mail, WhatsApp, produto de interesse e aceite opcional de comunicações. Para Delivery, o catálogo apresenta somente `KIT DELIVERY-400`. A submissão usa o POST e a consulta de status documentados pelo fluxo n8n. No clique válido, o WhatsApp abre imediatamente em uma nova aba enquanto o POST registra o lead. Se o navegador bloquear a aba, o formulário oferece um link alternativo. O estado `pending` não confirma o cadastro; só `confirmed` libera o evento de conversão. A pessoa precisa enviar a primeira mensagem para iniciar a conversa.
 
 Os IDs são `fitzz-delivery-inline` e `fitzz-delivery-floating`. O n8n deve aceitar `https://fitzz.com.br` e qualquer subdomínio HTTPS de `fitzz.com.br`, validando o host no próprio workflow. O CORS do webhook usa `*` porque n8n não oferece wildcard por subdomínio; a validação de origem no servidor rejeita domínios externos. IDs no padrão `fitzz-<slug>-inline` e `fitzz-<slug>-floating` podem reutilizar o workflow, mantendo produtos, pontos de captura e versões de aviso cadastrados.
 
@@ -25,3 +25,4 @@ node --test tests/*.test.js
 ```
 
 O build e os testes locais não validam CORS, persistência no PostgreSQL, gravação no Umbler, conversa iniciada no WhatsApp nem atribuição nos relatórios do Google Ads. Consulte [docs/validacao.md](docs/validacao.md) para o registro desta publicação e das validações pendentes.
+
