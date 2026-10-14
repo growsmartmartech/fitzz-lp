@@ -68,18 +68,25 @@
     }
     </script>
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y5PK5L8RY6"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-Y5PK5L8RY6');
+      window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+      window.gtag('consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted',
+        wait_for_update: 500
+      });
     </script>
-    <script type="text/javascript" async src="https://d335luupugsy2.cloudfront.net/js/loader-scripts/c39dbe75-9c1f-48cc-b388-22d1836a45cd-loader.js" ></script>
-    <script type="text/javascript" src="https://d335luupugsy2.cloudfront.net/js/rdstation-forms/stable/rdstation-forms.min.js"></script>
+    <script>
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!=='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-K2CKHQT');
+    </script>
   </head>
   <body>
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K2CKHQT" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
