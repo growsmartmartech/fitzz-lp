@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import {
   Package,
@@ -16,13 +16,99 @@ import {
   Battery,
   Wind,
 } from 'lucide-react';
+import ConsentPanel from './ConsentPanel.jsx';
+import './fitzz-lead-capture.js';
+import {
+  consentUpdateEvent,
+  readConsent,
+  saveConsent,
+  toMeasurementChoices,
+  leadConfirmedEvent,
+} from './consent.js';
+import { isCaptureConfigReady, isValidFormId } from './lead-capture-config.js';
+
+const POST_URL = import.meta.env.VITE_FITZZ_LEADS_POST_URL || 'https://automacao.growsmart.com.br/webhook/fitzz-leads';
+const STATUS_URL = import.meta.env.VITE_FITZZ_LEADS_STATUS_URL || 'https://automacao.growsmart.com.br/webhook/fitzz-leads/status';
+const INLINE_FORM_ID = import.meta.env.VITE_FITZZ_FORM_ID_INLINE || 'fitzz-delivery-inline';
+const FLOATING_FORM_ID = import.meta.env.VITE_FITZZ_FORM_ID_FLOATING || 'fitzz-delivery-floating';
+const INLINE_CAPTURE_READY = isCaptureConfigReady(POST_URL, INLINE_FORM_ID);
+const FLOATING_CAPTURE_READY = isCaptureConfigReady(POST_URL, FLOATING_FORM_ID);
 
 export default function App() {
+  const [consent, setConsent] = useState(() => readConsent());
+  const [consentOpen, setConsentOpen] = useState(() => !readConsent().decided);
+
   useEffect(() => {
-    if (window.RDStationForms) {
-      new window.RDStationForms('delivery-9217716c5a85366ebd0d', 'UA-142109495-1').createForm();
+    const measurementChoices = toMeasurementChoices(consent);
+    if (consent.decided) {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push(consentUpdateEvent(consent));
     }
-  }, []);
+
+    const captureAttribution = consent.analytics === true || consent.advertising === true;
+    const trackingAuthorized = consent.advertising === true;
+    let active = true;
+    customElements.whenDefined('fitzz-lead-capture').then(() => {
+      if (!active) return;
+      document.querySelectorAll('fitzz-lead-capture').forEach((form) => {
+        if (form.dataset.deliveryConfigured !== 'true') {
+          form.configure({
+            products: [{ id: 'delivery-400', label: 'KIT DELIVERY-400' }],
+            captureAttribution,
+            trackingAuthorized,
+            autoRedirect: false,
+            communicationTextVersion: 'draft-v01',
+            privacyNoticeVersion: 'privacy-v02',
+            measurementChoices,
+            texts: {
+              eyebrow: 'Fale com a Fitzz',
+              title: 'Converse com a equipe sobre o KIT DELIVERY-400.',
+              description: 'Preencha seus dados e receba orientação para sua rotina de entregas.',
+              optin: 'Aceito receber comunicações futuras da Fitzz.',
+              privacyNote: 'Usaremos seus dados para responder ao pedido e registrar o lead no Umbler Talk. O WhatsApp só inicia se você enviar uma mensagem.',
+              submit: 'Enviar solicitação',
+              launcher: 'Falar com a Fitzz',
+            },
+          });
+          form.dataset.deliveryConfigured = 'true';
+        } else {
+          form.setMeasurementChoices(measurementChoices, { captureAttribution, trackingAuthorized });
+        }
+      });
+    });
+
+    const confirmedForms = new WeakSet();
+    const onLeadState = (event) => {
+      if (event.detail?.status === 'confirmed') {
+        if (confirmedForms.has(event.target)) return;
+        confirmedForms.add(event.target);
+      }
+      const confirmedEvent = leadConfirmedEvent(
+        event.detail?.status,
+        event.target.getAttribute('capture-point'),
+      );
+      if (confirmedEvent) {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push(confirmedEvent);
+      }
+    };
+    document.addEventListener('fitzz-lead-state', onLeadState);
+    return () => {
+      active = false;
+      document.removeEventListener('fitzz-lead-state', onLeadState);
+    };
+  }, [consent]);
+
+  const savePreferences = (choices) => {
+    try {
+      const saved = saveConsent(window.localStorage, choices);
+      setConsent(saved);
+      setConsentOpen(false);
+    } catch {
+      setConsent({ ...choices, decided: true });
+      setConsentOpen(false);
+    }
+  };
 
   const scrollToForm = () => {
     const formSection = document.getElementById('simulador');
@@ -344,12 +430,28 @@ export default function App() {
               </div>
 
               <div className="form-card-body">
-                <div role="region" aria-label="Formulário de simulação gratuita" id="delivery-9217716c5a85366ebd0d" />
+                <fitzz-lead-capture
+                  mode="inline"
+                  form-id={isValidFormId(INLINE_FORM_ID) ? INLINE_FORM_ID : undefined}
+                  capture-point="landing_inline"
+                  webhook-url={INLINE_CAPTURE_READY ? POST_URL : undefined}
+                  status-url={STATUS_URL || undefined}
+                  privacy-url="https://fitzz.com.br/politica-de-privacidade/"
+                />
               </div>
             </div>
           </div>
         </section>
       </main>
+
+      <fitzz-lead-capture
+        mode="floating"
+        form-id={isValidFormId(FLOATING_FORM_ID) ? FLOATING_FORM_ID : undefined}
+        capture-point="landing_floating"
+        webhook-url={FLOATING_CAPTURE_READY ? POST_URL : undefined}
+        status-url={STATUS_URL || undefined}
+        privacy-url="https://fitzz.com.br/politica-de-privacidade/"
+      />
 
       <footer className="site-footer" role="contentinfo">
         <div className="container footer-inner">
@@ -362,8 +464,17 @@ export default function App() {
               <a key={s} href="#">{s}</a>
             ))}
           </div>
+          <button type="button" className="privacy-preferences-link" onClick={() => setConsentOpen(true)}>
+            Preferências de privacidade
+          </button>
         </div>
       </footer>
+
+      <ConsentPanel
+        open={consentOpen}
+        consent={consent}
+        onSave={savePreferences}
+      />
     </div>
   );
 }
