@@ -76,8 +76,12 @@ test('eventos seguem o contrato GTM da landing de kits e não carregam PII', () 
     security_storage: 'granted',
   });
   assert.deepEqual(leadConfirmedEvent('pending', 'landing_inline'), null);
-  assert.deepEqual(leadConfirmedEvent('confirmed', 'landing_floating'), {
+  assert.deepEqual(leadConfirmedEvent('confirmed', 'landing_floating', { analytics: true, advertising: true }), {
     event: 'fitzz_lead_confirmed',
     capture_point: 'landing_floating',
+    analytics_consent: true,
+    advertising_consent: true,
   });
+  assert.equal(leadConfirmedEvent('confirmed', 'landing_inline').advertising_consent, false);
+  assert.equal(leadConfirmedEvent('confirmed', 'landing_inline', { analytics: true, advertising: false }).advertising_consent, false);
 });

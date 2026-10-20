@@ -70,7 +70,12 @@ export function consentUpdateEvent(consent) {
   };
 }
 
-export function leadConfirmedEvent(status, capturePoint) {
+export function leadConfirmedEvent(status, capturePoint, consent) {
   if (status !== 'confirmed' || typeof capturePoint !== 'string' || !capturePoint) return null;
-  return { event: 'fitzz_lead_confirmed', capture_point: capturePoint };
+  return {
+    event: 'fitzz_lead_confirmed',
+    capture_point: capturePoint,
+    analytics_consent: consent?.analytics === true,
+    advertising_consent: consent?.advertising === true,
+  };
 }

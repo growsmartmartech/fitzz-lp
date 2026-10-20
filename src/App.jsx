@@ -86,6 +86,7 @@ export default function App() {
       const confirmedEvent = leadConfirmedEvent(
         event.detail?.status,
         event.target.getAttribute('capture-point'),
+        consent,
       );
       if (confirmedEvent) {
         window.dataLayer = window.dataLayer || [];
