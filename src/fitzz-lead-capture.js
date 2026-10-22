@@ -1,12 +1,14 @@
-/* Fitzz lead capture v1.0.4 — vanilla custom element. No credentials or storage. */
-import { isValidFormId } from './lead-capture-config.js';
-
+/* Fitzz lead capture v1.0.6 — vanilla custom element. No credentials or visitor PII storage. */
 (() => {
   'use strict';
   if (customElements.get('fitzz-lead-capture')) return;
-  const VERSION = '1.0.4';
+  const VERSION = '1.0.6';
   const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
   const CLICK_KEYS = ['gclid', 'gbraid', 'wbraid'];
+  const ATTRIBUTION_COOKIE = 'fitzz_attribution_v1';
+  const ADS_CLICK_COOKIE = 'fitzz_ads_click_v1';
+  const ATTRIBUTION_TTL_SECONDS = 90 * 24 * 60 * 60;
+  const TOUCH_KEYS = ['source', 'medium', 'campaign', 'content', 'term'];
   const PRODUCTS = [
     { id: 'urban-350', label: 'KIT URBAN-350' }, { id: 'delivery-400', label: 'KIT DELIVERY-400' },
     { id: 'force-500', label: 'KIT FORCE-500' }, { id: 'fat-500', label: 'KIT FAT-500' },
@@ -14,7 +16,7 @@ import { isValidFormId } from './lead-capture-config.js';
   ];
   const DEFAULTS = {
     products: PRODUCTS, captureAttribution: false, trackingAuthorized: false,
-    measurementChoices: { analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', ad_storage: 'denied', version: null },
+    measurementChoices: { analytics_storage: 'unknown', ad_user_data: 'unknown', ad_personalization: 'unknown', ad_storage: 'unknown', version: null },
     autoRedirect: false, timeoutMs: 12000, pollIntervalMs: 2500, maxPollingMs: 60000, maxPollAttempts: 20,
     whatsappNumber: '5548991108989',
     communicationTextVersion: 'draft-v01', privacyNoticeVersion: 'privacy-v03',
@@ -29,17 +31,44 @@ import { isValidFormId } from './lead-capture-config.js';
   const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clamp = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
   const containsPII = value => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(value) || /(?:\+?\d[\s().-]*){10,}/.test(value);
-  const hasControlChars = value => Array.from(value).some(character => {
-    const code = character.charCodeAt(0);
-    return code < 32 || code === 127;
-  });
+  const boundedText = (value, max = 200) => {
+    if (typeof value !== 'string') return null;
+    const result = value.trim().slice(0, max);
+    return result && !containsPII(result) && !/[\u0000-\u001f]/.test(result) ? result : null;
+  };
+  function fitzzCookieDomain() {
+    const host = location.hostname.toLowerCase();
+    return host === 'fitzz.com.br' || host.endsWith('.fitzz.com.br') ? '.fitzz.com.br' : '';
+  }
+  function readCookie(name) {
+    try {
+      const prefix = `${encodeURIComponent(name)}=`;
+      const entry = document.cookie.split('; ').find(part => part.startsWith(prefix));
+      return entry ? JSON.parse(decodeURIComponent(entry.slice(prefix.length))) : null;
+    } catch (_) { return null; }
+  }
+  function writeCookie(name, value) {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(value));
+      if (encoded.length > 3500) return false;
+      const domain = fitzzCookieDomain();
+      document.cookie = `${encodeURIComponent(name)}=${encoded}; Max-Age=${ATTRIBUTION_TTL_SECONDS}; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}${domain ? `; Domain=${domain}` : ''}`;
+      return document.cookie.split('; ').some(part => part.startsWith(`${encodeURIComponent(name)}=`));
+    } catch (_) { return false; }
+  }
+  function removeCookie(name) {
+    const domain = fitzzCookieDomain();
+    document.cookie = `${encodeURIComponent(name)}=; Max-Age=0; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}${domain ? `; Domain=${domain}` : ''}`;
+    if (domain) document.cookie = `${encodeURIComponent(name)}=; Max-Age=0; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+  }
+  const consentGranted = (choices, key) => choices && choices[key] === 'granted';
   const safeHttpUrl = value => {
     try {
       const u = new URL(value, document.baseURI);
       const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
       if (u.username || u.password || (u.protocol !== 'https:' && !(local && u.protocol === 'http:'))) return null;
       return u;
-    } catch { return null; }
+    } catch (_) { return null; }
   };
   function randomKey() {
     if (crypto.randomUUID) return crypto.randomUUID();
@@ -100,7 +129,7 @@ import { isValidFormId } from './lead-capture-config.js';
       this.config = { ...DEFAULTS, texts: { ...DEFAULTS.texts }, measurementChoices: { ...DEFAULTS.measurementChoices }, products: PRODUCTS.map(p => ({ ...p })) };
       this._state = 'idle'; this._busy = false; this._locked = false; this._attempt = null; this._receipt = null; this._token = null;
       this._timers = new Set(); this._requestController = null; this._pollCount = 0; this._pollStarted = 0; this._cooldownUntil = 0;
-      this._whatsappAttemptStarted = false; this._whatsappTabOpened = false;
+      this._whatsappAttemptStarted = false; this._whatsappTabOpened = false; this._confirmationEventSent = false;
       this._onVisibility = () => {
         if (document.hidden) this._stopPoll();
         else if (this._state === 'pending') {
@@ -134,24 +163,118 @@ import { isValidFormId } from './lead-capture-config.js';
       const products = options.products || this.config.products;
       if (!Array.isArray(products) || products.length === 0 || products.length > 60 || products.some(p => !p || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(p.id) || typeof p.label !== 'string' || !p.label.trim() || p.label.length > 100) || new Set(products.map(p => p.id)).size !== products.length) throw new Error('Configure um catálogo válido com IDs únicos.');
       const c = { ...this.config, ...options, products: products.map(p => ({ id: p.id, label: p.label })), texts: { ...this.config.texts, ...(options.texts || {}) }, measurementChoices: { ...this.config.measurementChoices, ...(options.measurementChoices || {}) } };
-      for (const key of ['analytics_storage', 'ad_user_data', 'ad_personalization', 'ad_storage']) if (!['unknown', 'granted', 'denied'].includes(c.measurementChoices[key])) c.measurementChoices[key] = 'denied';
+      for (const key of ['analytics_storage', 'ad_user_data', 'ad_personalization', 'ad_storage']) if (!['unknown', 'granted', 'denied'].includes(c.measurementChoices[key])) c.measurementChoices[key] = 'unknown';
       c.timeoutMs = clamp(c.timeoutMs, 12000, 100, 30000); c.pollIntervalMs = clamp(c.pollIntervalMs, 2500, 2000, 15000);
       c.maxPollingMs = clamp(c.maxPollingMs, 60000, 100, 60000); c.maxPollAttempts = clamp(c.maxPollAttempts, 20, 1, 20);
       c.captureAttribution = c.captureAttribution === true; c.trackingAuthorized = c.trackingAuthorized === true; c.autoRedirect = c.autoRedirect === true;
       c.measurementChoices = Object.fromEntries(['analytics_storage', 'ad_user_data', 'ad_personalization', 'ad_storage'].map(key => [key, c.measurementChoices[key]]));
       c.measurementChoices.version = typeof options.measurementChoices?.version === 'string' ? options.measurementChoices.version.slice(0, 80) : this.config.measurementChoices.version;
-      this.config = c; this._rendered = false; if (this.isConnected) { this._render(); this._restoreFields(prior); this._refreshAvailability(); }
+      this.config = c; this._persistAttribution(); this._rendered = false; if (this.isConnected) { this._render(); this._restoreFields(prior); this._refreshAvailability(); }
       return this;
+    }
+    _currentTouch() {
+      const params = new URL(location.href).searchParams;
+      const touch = { observed_at: new Date().toISOString(), source: null, medium: null, campaign: null, content: null, term: null, referrer_domain: null, landing_page: this._safePage(location.href) };
+      for (const [queryKey, touchKey] of UTM_KEYS.map((key, index) => [key, TOUCH_KEYS[index]])) touch[touchKey] = boundedText(params.get(queryKey));
+      let referrerHost = null;
+      try {
+        const referrer = document.referrer ? new URL(document.referrer) : null;
+        if (referrer && ['http:', 'https:'].includes(referrer.protocol)) {
+          const host = referrer.hostname.toLowerCase();
+          const internal = host === 'fitzz.com.br' || host.endsWith('.fitzz.com.br');
+          if (!internal) referrerHost = host;
+        }
+      } catch (_) { /* Referenciador inválido não determina origem. */ }
+      if (referrerHost) {
+        touch.referrer_domain = referrerHost.slice(0, 253);
+        if (!touch.source) { touch.source = referrerHost; touch.medium = 'referral'; }
+      }
+      const direct = ['direct', '(direct)'].includes(String(touch.source || '').toLowerCase());
+      if (direct) return { direct: true, touch: null };
+      return { direct: false, touch: touch.source || touch.medium || touch.campaign || touch.content || touch.term || touch.referrer_domain ? touch : null };
+    }
+    _validatedTouch(value) {
+      if (!value || typeof value !== 'object' || typeof value.observed_at !== 'string' || !Number.isFinite(Date.parse(value.observed_at))) return null;
+      const observedAt = Date.parse(value.observed_at);
+      if (Date.now() - observedAt > ATTRIBUTION_TTL_SECONDS * 1000 || observedAt > Date.now() + 300000) return null;
+      const touch = { observed_at: new Date(observedAt).toISOString() };
+      for (const key of TOUCH_KEYS) touch[key] = boundedText(value[key]);
+      touch.referrer_domain = typeof value.referrer_domain === 'string' && /^[a-z0-9.-]{1,253}$/i.test(value.referrer_domain) ? value.referrer_domain.toLowerCase() : null;
+      touch.landing_page = typeof value.landing_page === 'string' ? this._safePage(value.landing_page) : null;
+      return touch;
+    }
+    _readAttributionContext() {
+      const stored = readCookie(ATTRIBUTION_COOKIE);
+      const consentVersion = this.config.measurementChoices.version || null;
+      if (!stored || stored.schema_version !== 1 || stored.consent?.analytics_storage !== 'granted' || stored.consent?.version !== consentVersion) return null;
+      const firstTouch = this._validatedTouch(stored.context?.first_touch);
+      const lastTouch = this._validatedTouch(stored.context?.last_non_direct_touch);
+      return {
+        schema_version: 1,
+        status: firstTouch || lastTouch ? 'identified' : stored.context?.status === 'direct' ? 'direct' : 'unknown',
+        first_touch: firstTouch,
+        last_non_direct_touch: lastTouch
+      };
+    }
+    _readAdsClickContext() {
+      const stored = readCookie(ADS_CLICK_COOKIE);
+      const consentVersion = this.config.measurementChoices.version || null;
+      if (!stored || stored.schema_version !== 1 || stored.consent?.ad_storage !== 'granted' || stored.consent?.ad_user_data !== 'granted' || stored.consent?.version !== consentVersion) return null;
+      const validate = click => {
+        if (!click || typeof click !== 'object' || !Number.isFinite(Date.parse(click.observed_at))) return null;
+        const observed = Date.parse(click.observed_at);
+        if (Date.now() - observed > ATTRIBUTION_TTL_SECONDS * 1000 || observed > Date.now() + 300000) return null;
+        const ids = {};
+        for (const key of CLICK_KEYS) {
+          const value = click[key];
+          ids[key] = typeof value === 'string' && value.length <= 2048 && /^[A-Za-z0-9._~-]+$/.test(value) && !containsPII(value) ? value : null;
+        }
+        return Object.values(ids).some(Boolean) ? { ...ids, observed_at: new Date(observed).toISOString() } : null;
+      };
+      return { first_click: validate(stored.first_click), last_click: validate(stored.last_click) };
+    }
+    _persistAttribution() {
+      const choices = this.config.measurementChoices;
+      const consentVersion = typeof choices.version === 'string' ? choices.version : null;
+      if (choices.analytics_storage === 'denied') {
+        removeCookie(ATTRIBUTION_COOKIE);
+      } else if (consentGranted(choices, 'analytics_storage')) {
+        const previous = readCookie(ATTRIBUTION_COOKIE);
+        const validPrevious = previous?.schema_version === 1 && previous.consent?.analytics_storage === 'granted' && previous.consent?.version === consentVersion ? previous.context : null;
+        const current = this._currentTouch();
+        const firstTouch = this._validatedTouch(validPrevious?.first_touch) || current.touch;
+        const lastTouch = current.touch || this._validatedTouch(validPrevious?.last_non_direct_touch);
+        const context = {
+          schema_version: 1,
+          status: firstTouch || lastTouch ? 'identified' : (current.direct || validPrevious?.status === 'direct') ? 'direct' : 'unknown',
+          first_touch: firstTouch || null,
+          last_non_direct_touch: lastTouch || null
+        };
+        writeCookie(ATTRIBUTION_COOKIE, { schema_version: 1, consent: { analytics_storage: 'granted', version: consentVersion }, context });
+      }
+
+      const adDenied = choices.ad_storage === 'denied' || choices.ad_user_data === 'denied';
+      const adAllowed = consentGranted(choices, 'ad_storage') && consentGranted(choices, 'ad_user_data') && this.config.trackingAuthorized;
+      if (adDenied || (consentGranted(choices, 'ad_storage') && consentGranted(choices, 'ad_user_data') && !this.config.trackingAuthorized)) {
+        removeCookie(ADS_CLICK_COOKIE);
+      } else if (adAllowed) {
+        const previous = readCookie(ADS_CLICK_COOKIE);
+        const validPrevious = previous?.schema_version === 1 && previous.consent?.ad_storage === 'granted' && previous.consent?.ad_user_data === 'granted' && previous.consent?.version === consentVersion ? previous : null;
+        const params = new URL(location.href).searchParams;
+        const current = { observed_at: new Date().toISOString() };
+        for (const key of CLICK_KEYS) {
+          const value = params.get(key);
+          current[key] = typeof value === 'string' && value.length <= 2048 && /^[A-Za-z0-9._~-]+$/.test(value) && !containsPII(value) ? value : null;
+        }
+        const hasCurrent = CLICK_KEYS.some(key => current[key]);
+        const existingFirst = this._readAdsClickContext()?.first_click;
+        const existingLast = this._readAdsClickContext()?.last_click;
+        const firstClick = existingFirst || (hasCurrent ? current : null);
+        const lastClick = hasCurrent ? current : existingLast;
+        writeCookie(ADS_CLICK_COOKIE, { schema_version: 1, consent: { ad_storage: 'granted', ad_user_data: 'granted', version: consentVersion }, first_click: firstClick, last_click: lastClick });
+      }
     }
     get state() { return this._state; }
-    setMeasurementChoices(choices = {}, tracking = {}) {
-      const keys = ['analytics_storage', 'ad_storage', 'ad_user_data', 'ad_personalization'];
-      this.config.measurementChoices = Object.fromEntries(keys.map(key => [key, ['granted', 'denied', 'unknown'].includes(choices[key]) ? choices[key] : 'denied']));
-      this.config.measurementChoices.version = typeof choices.version === 'string' ? choices.version.slice(0, 80) : null;
-      this.config.captureAttribution = tracking.captureAttribution === true;
-      this.config.trackingAuthorized = tracking.trackingAuthorized === true;
-      return this;
-    }
     selectProduct(productId) {
       if (this._locked || !this._rendered || typeof productId !== 'string' || !this.config.products.some(p => p.id === productId)) return false;
       this._el('product_id').value = productId;
@@ -221,7 +344,7 @@ import { isValidFormId } from './lead-capture-config.js';
     _validate() {
       const v = this._readFields(); const errors = {};
       v.full_name = v.full_name.trim(); v.email = v.email.trim();
-      if (v.full_name.length < 2 || v.full_name.length > 100 || hasControlChars(v.full_name)) errors.full_name = 'Informe seu nome, com 2 a 100 caracteres.';
+      if (v.full_name.length < 2 || v.full_name.length > 100 || /[\u0000-\u001F]/.test(v.full_name)) errors.full_name = 'Informe seu nome, com 2 a 100 caracteres.';
       if (!v.email || this._el('email').validity.typeMismatch || /\s/.test(v.email) || v.email.length > 254) errors.email = 'Informe um email válido.';
       const normalized = phone(v.whatsapp); if (!normalized) errors.whatsapp = 'Informe seu WhatsApp com DDD. Para outro país, inclua + e o código do país.';
       if (!this.config.products.some(p => p.id === v.product_id)) errors.product_id = 'Selecione um produto ou peça ajuda para escolher.';
@@ -233,24 +356,32 @@ import { isValidFormId } from './lead-capture-config.js';
       try {
         const u = new URL(raw); if (!['https:', 'http:'].includes(u.protocol)) return null;
         u.username = ''; u.password = ''; u.hash = '';
-        u.pathname = u.pathname.split('/').map(part => { let decoded = part; try { decoded = decodeURIComponent(part); } catch { /* Mantém o segmento original inválido. */ } return containsPII(decoded) ? 'redacted' : part; }).join('/');
+        u.pathname = u.pathname.split('/').map(part => { let decoded = part; try { decoded = decodeURIComponent(part); } catch (_) {} return containsPII(decoded) ? 'redacted' : part; }).join('/');
       const keep = new URLSearchParams();
-        if (this.config.captureAttribution) for (const key of UTM_KEYS) { const value = u.searchParams.get(key); if (value && value.length <= 200 && !containsPII(value)) keep.set(key, value); }
+        if (this.config.captureAttribution && consentGranted(this.config.measurementChoices, 'analytics_storage')) for (const key of UTM_KEYS) { const value = boundedText(u.searchParams.get(key)); if (value) keep.set(key, value); }
         u.search = keep.toString(); return u.href.length <= 2048 ? u.href : `${u.origin}/`;
-      } catch { return null; }
+      } catch (_) { return null; }
     }
     _metadata() {
       const p = new URL(location.href); const c = this.config;
-      const result = { form_id: this.getAttribute('form-id') || null, form_version: VERSION, capture_point: this.getAttribute('capture-point') || (this.getAttribute('mode') === 'floating' ? 'site_floating' : 'landing_inline'), landing_page: this._safePage(this._landingPage || location.href), capture_page: this._safePage(location.href), referrer_domain: null, communication_text_version: c.communicationTextVersion, privacy_notice_version: c.privacyNoticeVersion, measurement_choices: { ...c.measurementChoices } };
-      if (c.captureAttribution && document.referrer) { try { result.referrer_domain = new URL(document.referrer).hostname; } catch { /* Referrer inválido não é enviado. */ } }
-      for (const key of UTM_KEYS) { const value = p.searchParams.get(key); result[key] = c.captureAttribution && value && value.length <= 200 && !containsPII(value) ? value : null; }
-      for (const key of CLICK_KEYS) { const value = p.searchParams.get(key); result[key] = c.captureAttribution && c.trackingAuthorized && c.measurementChoices.ad_user_data === 'granted' && value && value.length <= 2048 && !/[\s]/.test(value) && !hasControlChars(value) ? value : null; }
+      const analyticsAllowed = c.captureAttribution && consentGranted(c.measurementChoices, 'analytics_storage');
+      const adsAllowed = c.captureAttribution && c.trackingAuthorized && consentGranted(c.measurementChoices, 'ad_storage') && consentGranted(c.measurementChoices, 'ad_user_data');
+      const capturePoint = this.getAttribute('capture-point') || (this.getAttribute('mode') === 'floating' ? 'site_floating' : 'landing_inline');
+      const result = { form_id: this.getAttribute('form-id') || 'fitzz-lead-capture', form_version: VERSION, capture_point: capturePoint, landing_page: this._safePage(this._landingPage || location.href), capture_page: this._safePage(location.href), referrer_domain: null, communication_text_version: c.communicationTextVersion, privacy_notice_version: c.privacyNoticeVersion, measurement_choices: { ...c.measurementChoices } };
+      if (analyticsAllowed && document.referrer) { try { const host = new URL(document.referrer).hostname.toLowerCase(); if (!(host === 'fitzz.com.br' || host.endsWith('.fitzz.com.br'))) result.referrer_domain = host; } catch (_) {} }
+      for (const key of UTM_KEYS) { const value = p.searchParams.get(key); result[key] = analyticsAllowed ? boundedText(value) : null; }
+      const adsContext = adsAllowed ? this._readAdsClickContext() : null;
+      const lastClick = adsContext?.last_click;
+      for (const key of CLICK_KEYS) {
+        const current = p.searchParams.get(key);
+        const value = current || lastClick?.[key] || null;
+        result[key] = adsAllowed && typeof value === 'string' && value.length <= 2048 && /^[A-Za-z0-9._~-]+$/.test(value) && !containsPII(value) ? value : null;
+      }
+      const attribution = analyticsAllowed ? this._readAttributionContext() : null;
+      result.attribution_context = attribution || { schema_version: 1, status: 'unknown', first_touch: null, last_non_direct_touch: null };
       return result;
     }
-    _endpoint(attribute) {
-      if (attribute === 'webhook-url' && !isValidFormId(this.getAttribute('form-id'))) return null;
-      const value = this.getAttribute(attribute); return value ? safeHttpUrl(value) : null;
-    }
+    _endpoint(attribute) { const value = this.getAttribute(attribute); return value ? safeHttpUrl(value) : null; }
     _refreshPrivacy() {
       const container = this.shadowRoot.querySelector('.privacy'); if (!container) return;
       container.textContent = this.config.texts.privacyNote;
@@ -276,7 +407,12 @@ import { isValidFormId } from './lead-capture-config.js';
     }
     _setState(status, message) {
       this._state = status; if (this._rendered) { this._el('form-status').textContent = message; this._applyLocks(); }
-      this.dispatchEvent(new CustomEvent('fitzz-lead-state', { detail: { status }, bubbles: true, composed: true }));
+      const capturePoint = this.getAttribute('capture-point') || (this.getAttribute('mode') === 'floating' ? 'site_floating' : 'landing_inline');
+      this.dispatchEvent(new CustomEvent('fitzz-lead-state', { detail: { status, capture_point: capturePoint, fitzz_capture_point: capturePoint }, bubbles: true, composed: true }));
+      if (status === 'confirmed' && !this._confirmationEventSent) {
+        this._confirmationEventSent = true;
+        this.dispatchEvent(new CustomEvent('fitzz-lead-confirmed', { detail: { capture_point: capturePoint, fitzz_capture_point: capturePoint }, bubbles: true, composed: true }));
+      }
     }
     async _fetch(url, options) {
       const controller = new AbortController(); this._requestController = controller;
@@ -307,7 +443,7 @@ import { isValidFormId } from './lead-capture-config.js';
       try {
         const response = await this._fetch(endpoint.href, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(this._attempt) });
         await this._handleResponse(response, false);
-      } catch { this._setState('uncertain', `Não foi possível confirmar o cadastro. ${this._whatsappStatusMessage()} Tente confirmar novamente; manteremos os mesmos dados para evitar um envio duplicado.`); }
+      } catch (_) { this._setState('uncertain', `Não foi possível confirmar o cadastro. ${this._whatsappStatusMessage()} Tente confirmar novamente; manteremos os mesmos dados para evitar um envio duplicado.`); }
       finally { this._busy = false; this._applyLocks(); if (this._state === 'pending') this._schedulePoll(); }
     }
     _retrySeconds(response, body) {
@@ -333,8 +469,10 @@ import { isValidFormId } from './lead-capture-config.js';
       if (response.status === 200 && body.status === 'confirmed') {
         const wa = this._whatsappUrl(body.waUrl); if (!wa) throw new Error('invalid-whatsapp');
         this._stopPoll(); const link = this._el('continue-whatsapp'); link.href = wa; link.hidden = false; this._el('check-status').hidden = true;
-        const nextStep = this._whatsappTabOpened ? 'O WhatsApp está aberto em outra aba.' : 'Use o botão abaixo para abrir o WhatsApp em outra aba.';
-        this._setState('confirmed', `Cadastro confirmado. ${nextStep} Envie a mensagem para iniciar a conversa.`);
+        const whatsAppNextStep = this._whatsappTabOpened
+          ? 'O WhatsApp está aberto em outra aba.'
+          : 'Use o botão abaixo para abrir o WhatsApp em outra aba.';
+        this._setState('confirmed', `Cadastro confirmado. ${whatsAppNextStep} Envie a mensagem para iniciar a conversa.`);
         this._el('form-status').focus({ preventScroll: true });
         return;
       }
@@ -347,20 +485,6 @@ import { isValidFormId } from './lead-capture-config.js';
         this._setState('pending', this._whatsappStatusMessage()); this._showCheck(); return;
       }
       throw new Error('invalid-contract');
-    }
-    _whatsappUrl(raw) {
-      if (typeof raw !== 'string') return null;
-      try {
-        const u = new URL(raw); if (u.protocol !== 'https:' || u.hostname !== 'wa.me' || u.port || u.username || u.password || u.hash || !/^\/[1-9]\d{7,14}\/?$/.test(u.pathname) || Array.from(u.searchParams.keys()).some(k => k !== 'text')) return null;
-        const number = u.pathname.replace(/\//g, ''); const configured = this.getAttribute('whatsapp-number') || this.config.whatsappNumber;
-        const restricted = String(configured || '').replace(/\D/g, '');
-        if (!restricted || restricted !== number) return null;
-        const product = this.config.products.find(p => p.id === this._attempt.product_id);
-        u.search = ''; u.pathname = `/${number}`;
-        // Rebuild text exclusively from configured catalogue. Never carry server PII/query fields.
-        u.searchParams.set('text', `Olá, tenho interesse em ${product ? product.label : 'um kit Fitzz'} e gostaria de orientação.`);
-        return u.href;
-      } catch { return null; }
     }
     _whatsappStatusMessage() {
       if (this._whatsappTabOpened) return 'WhatsApp aberto em outra aba. O registro dos seus dados continua em processamento.';
@@ -381,10 +505,25 @@ import { isValidFormId } from './lead-capture-config.js';
         popup.opener = null;
         popup.location.replace(wa);
         return true;
-      } catch {
-        try { popup?.close(); } catch { /* A aba pode já ter sido bloqueada pelo navegador. */ }
+      } catch (_) {
+        try { popup?.close(); } catch (_) { /* A aba pode já ter sido bloqueada pelo navegador. */ }
         return false;
       }
+    }
+    _whatsappUrl(raw) {
+      if (typeof raw !== 'string') return null;
+      try {
+        const u = new URL(raw); if (u.protocol !== 'https:' || u.hostname !== 'wa.me' || u.port || u.username || u.password || u.hash || !/^\/[1-9]\d{7,14}\/?$/.test(u.pathname) || Array.from(u.searchParams.keys()).some(k => k !== 'text')) return null;
+        const number = u.pathname.replace(/\//g, '');
+        const configured = this.getAttribute('whatsapp-number') || this.config.whatsappNumber;
+        const restricted = String(configured || '').replace(/\D/g, '');
+        if (!restricted || restricted !== number) return null;
+        const product = this.config.products.find(p => p.id === this._attempt.product_id);
+        u.search = ''; u.pathname = `/${number}`;
+        // Rebuild text exclusively from configured catalogue. Never carry server PII/query fields.
+        u.searchParams.set('text', `Olá, tenho interesse em ${product ? product.label : 'um kit Fitzz'} e gostaria de orientação.`);
+        return u.href;
+      } catch (_) { return null; }
     }
     _canPoll() { return !!(this._token && this._receipt && this._statusEndpoint); }
     _showCheck() { if (this._rendered && this._state !== 'confirmed') this._el('check-status').hidden = !this._locked || this._busy; }
@@ -403,10 +542,9 @@ import { isValidFormId } from './lead-capture-config.js';
       try {
         const response = await this._fetch(this._statusEndpoint.href, { method: 'GET', headers: { Accept: 'application/json', Authorization: `Bearer ${this._token}`, 'X-Lead-Receipt': this._receipt } });
         await this._handleResponse(response, true);
-      } catch { this._setState('pending', 'Ainda não foi possível consultar a confirmação. Seus dados continuam em verificação.'); }
+      } catch (_) { this._setState('pending', 'Ainda não foi possível consultar a confirmação. Seus dados continuam em verificação.'); }
       finally { this._busy = false; this._applyLocks(); if (this._state === 'pending') this._schedulePoll(); else this._showCheck(); }
     }
   }
   customElements.define('fitzz-lead-capture', FitzzLeadCapture);
 })();
-

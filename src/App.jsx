@@ -22,6 +22,7 @@ import {
   consentUpdateEvent,
   readConsent,
   saveConsent,
+  toCapturePolicy,
   toMeasurementChoices,
   leadConfirmedEvent,
 } from './consent.js';
@@ -40,13 +41,12 @@ export default function App() {
 
   useEffect(() => {
     const measurementChoices = toMeasurementChoices(consent);
+    const capturePolicy = toCapturePolicy(consent);
     if (consent.decided) {
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push(consentUpdateEvent(consent));
     }
 
-    const captureAttribution = consent.analytics === true || consent.advertising === true;
-    const trackingAuthorized = consent.advertising === true;
     let active = true;
     customElements.whenDefined('fitzz-lead-capture').then(() => {
       if (!active) return;
@@ -54,8 +54,7 @@ export default function App() {
         if (form.dataset.deliveryConfigured !== 'true') {
           form.configure({
             products: [{ id: 'delivery-400', label: 'KIT DELIVERY-400' }],
-            captureAttribution,
-            trackingAuthorized,
+            ...capturePolicy,
             autoRedirect: false,
             communicationTextVersion: 'draft-v01',
             privacyNoticeVersion: 'privacy-v03',
@@ -72,7 +71,7 @@ export default function App() {
           });
           form.dataset.deliveryConfigured = 'true';
         } else {
-          form.setMeasurementChoices(measurementChoices, { captureAttribution, trackingAuthorized });
+          form.configure({ measurementChoices, ...capturePolicy });
         }
       });
     });
@@ -85,7 +84,8 @@ export default function App() {
       }
       const confirmedEvent = leadConfirmedEvent(
         event.detail?.status,
-        event.target.getAttribute('capture-point'),
+        event.detail?.fitzz_capture_point || event.detail?.capture_point
+          || event.target.getAttribute('capture-point'),
         consent,
       );
       if (confirmedEvent) {

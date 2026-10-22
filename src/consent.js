@@ -1,4 +1,4 @@
-export const CONSENT_VERSION = 'consent-v01';
+export const CONSENT_VERSION = 'consent-v02';
 export const CONSENT_STORAGE_KEY = 'fitzz-consent-preferences';
 
 export const DEFAULT_CONSENT = Object.freeze({
@@ -45,14 +45,25 @@ export function saveConsent(storage, choices) {
 }
 
 export function toMeasurementChoices(consent) {
-  const analytics = consent?.analytics === true ? 'granted' : 'denied';
-  const advertising = consent?.advertising === true ? 'granted' : 'denied';
+  const decided = consent?.decided === true;
+  const analytics = decided ? (consent.analytics === true ? 'granted' : 'denied') : 'unknown';
+  const advertising = decided ? (consent.advertising === true ? 'granted' : 'denied') : 'unknown';
   return {
     analytics_storage: analytics,
     ad_storage: advertising,
     ad_user_data: advertising,
     ad_personalization: advertising,
-    version: CONSENT_VERSION,
+    version: decided ? CONSENT_VERSION : null,
+  };
+}
+
+export function toCapturePolicy(consent) {
+  const decided = consent?.decided === true;
+  const analytics = decided && consent.analytics === true;
+  const advertising = decided && consent.advertising === true;
+  return {
+    captureAttribution: decided && (analytics || advertising),
+    trackingAuthorized: advertising,
   };
 }
 
@@ -71,11 +82,16 @@ export function consentUpdateEvent(consent) {
 }
 
 export function leadConfirmedEvent(status, capturePoint, consent) {
-  if (status !== 'confirmed' || typeof capturePoint !== 'string' || !capturePoint) return null;
+  const resolved = consent?.decided === true;
+  const analytics = resolved && consent.analytics === true;
+  const advertising = resolved && consent.advertising === true;
+  if (status !== 'confirmed' || !(analytics || advertising)) return null;
+  const point = typeof capturePoint === 'string' && capturePoint ? capturePoint : 'unknown';
   return {
     event: 'fitzz_lead_confirmed',
-    capture_point: capturePoint,
-    analytics_consent: consent?.analytics === true,
-    advertising_consent: consent?.advertising === true,
+    capture_point: point,
+    fitzz_capture_point: point,
+    analytics_consent: analytics,
+    advertising_consent: advertising,
   };
 }
